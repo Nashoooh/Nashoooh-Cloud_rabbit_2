@@ -1,0 +1,3 @@
+# Ignorar archivos JSON generados pero mantener la estructura de directorios
+*.json
+!.gitkeep
