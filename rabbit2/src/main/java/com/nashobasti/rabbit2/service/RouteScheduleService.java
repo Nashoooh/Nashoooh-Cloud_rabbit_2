@@ -17,6 +17,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -112,16 +114,48 @@ public class RouteScheduleService {
         jsonData.put("timestamp", routeUpdate.getTimestamp().format(DATE_FORMAT));
         jsonData.put("zonaHoraria", "UTC-3");
         
-        // Generar nombre del archivo con timestamp
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String fileName = String.format("actualizacion_ruta_%s_%s.json", 
+        // Generar nombre del archivo - solo ruta + fecha (sin hora)
+        String fecha = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String fileName = String.format("actualizaciones_%s_%s.json", 
             routeUpdate.getRutaId(), 
-            timestamp);
+            fecha);
         
-        // Escribir el archivo JSON
         File outputFile = new File(outputPath.toFile(), fileName);
-        objectMapper.writerWithDefaultPrettyPrinter().writeValue(outputFile, jsonData);
         
-        System.out.println(" [📄] Archivo JSON creado: " + outputFile.getAbsolutePath());
+        // Crear estructura del archivo JSON
+        Map<String, Object> archivoCompleto = new HashMap<>();
+        List<Map<String, Object>> actualizaciones = new ArrayList<>();
+        
+        // Si el archivo ya existe, leer las actualizaciones previas
+        if (outputFile.exists()) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> datosExistentes = objectMapper.readValue(outputFile, Map.class);
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> listExistente = (List<Map<String, Object>>) datosExistentes.get("actualizaciones");
+                if (listExistente != null) {
+                    actualizaciones.addAll(listExistente);
+                }
+            } catch (Exception e) {
+                System.out.println(" [⚠] Error leyendo archivo existente: " + e.getMessage());
+                // Si hay error, crear archivo nuevo
+                actualizaciones = new ArrayList<>();
+            }
+        }
+        
+        // Agregar la nueva actualización
+        actualizaciones.add(jsonData);
+        
+        // Estructura final del archivo
+        archivoCompleto.put("rutaId", routeUpdate.getRutaId());
+        archivoCompleto.put("fecha", fecha);
+        archivoCompleto.put("totalActualizaciones", actualizaciones.size());
+        archivoCompleto.put("actualizaciones", actualizaciones);
+        
+        // Escribir el archivo completo
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(outputFile, archivoCompleto);
+        
+        System.out.println(" [📄] Archivo JSON actualizado: " + outputFile.getAbsolutePath() + 
+                          " (Total: " + actualizaciones.size() + " actualizaciones)");
     }
 }
